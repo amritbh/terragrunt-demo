@@ -350,6 +350,40 @@ This creates a full audit trail of who approved each deployment.
 
 ---
 
+## Resource Deletion & Teardown
+
+To delete resources through CI/CD, there are two different approaches depending on whether you want to delete **specific resources** or **tear down an entire environment**.
+
+### Approach 1: Deleting Specific Resources (Standard CI/CD Flow)
+
+If you just want to remove a specific resource (like a single subnet, or an IAM role) but keep the rest of the environment running, use the standard Pull Request flow:
+
+1. **Delete the code:** Remove the Terraform/Terragrunt code for that resource in a branch.
+2. **Open a PR:** The CI/CD pipeline will automatically run `terragrunt plan` and post a comment showing that the resource will be `destroyed`.
+3. **Merge the PR:** Once merged to `main`, the CI/CD pipeline runs `terragrunt apply`. Terraform detects the resource is missing from the code and automatically deletes it from AWS.
+
+### Approach 2: Tearing Down an Entire Environment (Manual Destroy Workflow)
+
+If you want to tear down everything (e.g., destroy the entire `dev` EKS cluster to save costs), you should **not** delete the code because you'll likely need it again later.
+
+To handle this safely, use the **`Manual Teardown (Destroy)`** workflow:
+
+1. Go to your repository on GitHub and click the **Actions** tab.
+2. On the left sidebar, click **Manual Teardown (Destroy)**.
+3. On the right side, click the **Run workflow** dropdown button.
+4. Fill out the required parameters:
+   * **Project:** Select which project to destroy (EKS Stack or VPC Multi-Env)
+   * **Environment:** Select `dev`, `uat`, or `prod`
+   * **Confirmation:** You must type exactly `DESTROY` in all caps to unlock the safety mechanism.
+5. Click **Run workflow**.
+
+**Built-in Safety Features:**
+* Uses `terragrunt destroy --all -auto-approve` to cleanly tear down the entire module tree in reverse-dependency order.
+* Requires the exact typed confirmation string.
+* Uses the same GitHub Environments feature as the apply pipelines — meaning if you select `prod`, **it will still pause and ask for manual reviewer approval** before executing the destroy command!
+
+---
+
 ## Troubleshooting
 
 ### `Error: credentials not found`
