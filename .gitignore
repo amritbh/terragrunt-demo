@@ -1,0 +1,14 @@
+# Terragrunt cache directories (auto-generated, contains large provider binaries)
+**/.terragrunt-cache/
+
+# Terraform cache and state
+**/.terraform/
+**/.terraform.lock.hcl
+*.tfstate
+*.tfstate.backup
+
+# Terraform plan files
+*.tfplan
+
+# OS files
+.DS_Store
