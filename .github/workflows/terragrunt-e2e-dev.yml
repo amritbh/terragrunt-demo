@@ -1,0 +1,146 @@
+# Terragrunt CI/CD Pipeline
+#
+# TRIGGERS:
+#   - Pull Request → runs terragrunt plan --all (preview only, no changes)
+#   - Push to main → runs terragrunt apply --all (deploys infrastructure)
+#
+# REQUIRED GITHUB SECRETS (Settings → Secrets → Actions):
+#   AWS_ACCESS_KEY_ID       - AWS IAM access key
+#   AWS_SECRET_ACCESS_KEY   - AWS IAM secret key
+#   AWS_REGION              - e.g. us-east-1
+
+name: Terragrunt CI/CD - End-To-End-Project (dev)
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'End-To-End-Project/**'
+  push:
+    branches:
+      - main
+    paths:
+      - 'End-To-End-Project/**'
+
+env:
+  AWS_REGION: us-east-1
+  TF_VERSION: 1.9.0
+  TG_VERSION: 0.67.0
+  WORKING_DIR: End-To-End-Project/infrastructure-live/dev
+
+permissions:
+  contents: read
+  pull-requests: write   # Needed to post plan output as PR comment
+
+jobs:
+  # ─────────────────────────────────────────────────────────
+  # JOB 1: Plan — runs on every Pull Request
+  # ─────────────────────────────────────────────────────────
+  plan:
+    name: Terragrunt Plan
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ${{ env.AWS_REGION }}
+
+      - name: Install Terraform ${{ env.TF_VERSION }}
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false  # Required for terragrunt to parse tf output
+
+      - name: Install Terragrunt ${{ env.TG_VERSION }}
+        run: |
+          curl -sL https://github.com/gruntwork-io/terragrunt/releases/download/v${{ env.TG_VERSION }}/terragrunt_linux_amd64 \
+            -o /usr/local/bin/terragrunt
+          chmod +x /usr/local/bin/terragrunt
+          terragrunt --version
+
+      - name: Terragrunt Init (all modules)
+        working-directory: ${{ env.WORKING_DIR }}
+        run: terragrunt init --all --terragrunt-non-interactive
+
+      - name: Terragrunt Validate (all modules)
+        working-directory: ${{ env.WORKING_DIR }}
+        run: terragrunt validate --all --terragrunt-non-interactive
+
+      - name: Terragrunt Plan (all modules)
+        id: plan
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          terragrunt plan --all --terragrunt-non-interactive 2>&1 | tee plan_output.txt
+          echo "exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
+        continue-on-error: true   # Post the plan even if it fails
+
+      - name: Post Plan as PR comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const planOutput = fs.readFileSync('${{ env.WORKING_DIR }}/plan_output.txt', 'utf8');
+            const maxLen = 65000;
+            const truncated = planOutput.length > maxLen
+              ? planOutput.slice(0, maxLen) + '\n\n... (truncated)'
+              : planOutput;
+            const body = `## 🔍 Terragrunt Plan — \`dev\` environment\n\n<details><summary>Click to expand plan output</summary>\n\n\`\`\`hcl\n${truncated}\n\`\`\`\n\n</details>\n\n**Plan exit code:** \`${{ steps.plan.outputs.exit_code }}\``;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body
+            });
+
+      - name: Fail if plan errored
+        if: steps.plan.outputs.exit_code != '0'
+        run: exit 1
+
+  # ─────────────────────────────────────────────────────────
+  # JOB 2: Apply — runs only on push to main
+  # ─────────────────────────────────────────────────────────
+  apply:
+    name: Terragrunt Apply
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment: dev   # Requires manual approval gate if configured in GitHub Environments
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ${{ env.AWS_REGION }}
+
+      - name: Install Terraform ${{ env.TF_VERSION }}
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Install Terragrunt ${{ env.TG_VERSION }}
+        run: |
+          curl -sL https://github.com/gruntwork-io/terragrunt/releases/download/v${{ env.TG_VERSION }}/terragrunt_linux_amd64 \
+            -o /usr/local/bin/terragrunt
+          chmod +x /usr/local/bin/terragrunt
+          terragrunt --version
+
+      - name: Terragrunt Init (all modules)
+        working-directory: ${{ env.WORKING_DIR }}
+        run: terragrunt init --all --terragrunt-non-interactive
+
+      - name: Terragrunt Apply (all modules)
+        working-directory: ${{ env.WORKING_DIR }}
+        run: terragrunt apply --all --terragrunt-non-interactive
