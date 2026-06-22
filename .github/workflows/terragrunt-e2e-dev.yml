@@ -12,6 +12,7 @@
 name: Terragrunt CI/CD - End-To-End-Project (dev)
 
 on:
+  workflow_dispatch:
   pull_request:
     branches:
       - main
