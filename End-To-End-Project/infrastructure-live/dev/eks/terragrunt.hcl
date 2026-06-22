@@ -11,7 +11,7 @@ dependency "iam"{
     mock_outputs = {
         eks_role_arn = "arn:aws:iam::123456789012:role/mock-role"
     }
-    mock_outputs_allowed_terraform_commands = ["plan","validate","init"]
+    mock_outputs_allowed_terraform_commands = ["plan","validate","init","destroy"]
 }
 dependency "subnet"{
     config_path = "../subnet"
@@ -19,7 +19,7 @@ dependency "subnet"{
     mock_outputs = {
         subnet_ids = ["mock-subnet-id-1","mock-subnet-id-2"]
     }
-    mock_outputs_allowed_terraform_commands = ["plan","validate","init"]
+    mock_outputs_allowed_terraform_commands = ["plan","validate","init","destroy"]
 }
 
 inputs = {

@@ -12,7 +12,7 @@ dependency "vpc" {
     mock_outputs = {
         vpc_id = "mock-vpc-id"
     }
-    mock_outputs_allowed_terraform_commands = ["plan","validate","init"]
+    mock_outputs_allowed_terraform_commands = ["plan","validate","init","destroy"]
 }
 
 inputs = {
