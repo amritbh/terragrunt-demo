@@ -145,7 +145,7 @@ Another workflow run (or a local developer) currently holds the lock for this en
 ## 4. Missing Dependencies (`Unknown variable "dependency"`)
 
 ### Symptoms
-When running `terragrunt plan` on a PR, the validation fails with:
+When running `terragrunt plan` on a PR, or when running `terragrunt destroy` on an environment that hasn't been deployed yet, it fails with:
 ```
 ERRO[0000] This object does not have an attribute named "vpc_id".
 ```
@@ -155,10 +155,10 @@ ERRO[0000] Unknown variable "dependency"
 ```
 
 ### Root Cause
-When evaluating modules in a CI environment during `plan`, upstream resources (like the VPC) might not exist yet, meaning they don't have real outputs saved in the S3 state file for downstream modules (like Subnet) to read.
+When evaluating modules in a CI environment during `plan` (or `destroy`), upstream resources (like the VPC) might not exist yet, meaning they don't have real outputs saved in the S3 state file for downstream modules (like Subnet) to read.
 
 ### Solution
-Ensure every `dependency` block in `terragrunt.hcl` includes `mock_outputs` and correctly whitelists commands:
+Ensure every `dependency` block in `terragrunt.hcl` includes `mock_outputs` and correctly whitelists **all** commands that might need to evaluate the file before resources exist (including `destroy` for manual teardowns of broken/unapplied environments):
 
 ```hcl
 dependency "vpc" {
@@ -168,8 +168,8 @@ dependency "vpc" {
         vpc_id = "mock-vpc-id"
     }
     
-    # CRITICAL: Without this line, the mock outputs won't be used during init/validate!
-    mock_outputs_allowed_terraform_commands = ["plan", "validate", "init"]
+    # CRITICAL: Without this line, the mock outputs won't be used!
+    mock_outputs_allowed_terraform_commands = ["plan", "validate", "init", "destroy"]
 }
 ```
 
