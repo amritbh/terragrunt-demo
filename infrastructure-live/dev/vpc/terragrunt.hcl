@@ -1,4 +1,5 @@
 
+# [CI Test] Trigger: VPC multi-env workflow validation
 #include root configuration
 include "root" {
     path = find_in_parent_folders("root.hcl")
