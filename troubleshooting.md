@@ -68,40 +68,53 @@ git push -u origin main --force
 
 ---
 
-## 2. Workflow Fails with `flag provided but not defined: -terragrunt-non-interactive`
+## 2. Workflow Fails due to Interactive Prompts / Flag Parsing Errors
 
 ### Symptoms
-During a GitHub Actions run (e.g., `terragrunt plan --all`), the step fails immediately with the following output:
+When running `terragrunt apply` in GitHub Actions, you might encounter two different errors depending on how you configure the command:
+
+**Error A (Flag parsing failure on init/plan):**
 ```
-* Failed to execute "terraform plan -terragrunt-non-interactive" in ./vpc/.terragrunt-cache/...
-  ╷
+* Failed to execute "terraform init -terragrunt-non-interactive"
   │ Error: Failed to parse command-line flags
-  │ 
   │ flag provided but not defined: -terragrunt-non-interactive
-  ╵
+```
+
+**Error B (EOF failure on apply):**
+```
+Are you sure you want to run 'terragrunt apply' in each unit of the run queue displayed above? (y/n) 
+ERROR  EOF
+Process completed with exit code 1.
 ```
 
 ### Root Cause
-In Terragrunt v1.0.1 (and newer CLI redesign versions), passing `--terragrunt-non-interactive` along with standard Terraform commands can cause Terragrunt to incorrectly forward the flag down to the underlying `terraform` binary. Since Terraform doesn't recognize `-terragrunt-non-interactive`, it aborts.
+In Terragrunt v1.0.1 (and newer CLI redesign versions), passing the old `--terragrunt-non-interactive` flag inline can cause Terragrunt to incorrectly forward the flag down to the underlying `terraform` binary, resulting in Error A. 
+
+However, if you simply remove all non-interactive flags, Terragrunt defaults to prompting for a `(y/n)` confirmation during the `apply` phase. Because GitHub Actions doesn't have a human to type "y", it immediately throws an EOF error (Error B).
 
 ### Solution
-Remove the `--terragrunt-non-interactive` flag from all `terragrunt` commands in your `.github/workflows/` YAML files. 
+To properly run Terragrunt in CI without interactive prompts, you must bypass **both** Terragrunt's prompt and Terraform's prompt simultaneously using the correct combination of Environment Variables and flags.
 
-GitHub Actions runners are natively non-interactive (they have no TTY attached), so Terraform and Terragrunt automatically detect this and disable interactive prompts anyway.
+**Step 1. Set the Environment Variable**
+In your `.github/workflows/` YAML, define `TERRAGRUNT_NON_INTERACTIVE` globally. This tells Terragrunt itself not to ask `(y/n)`.
 
-**Before:**
 ```yaml
-run: terragrunt init --all --terragrunt-non-interactive
-run: terragrunt apply --all --terragrunt-non-interactive
+env:
+  TERRAGRUNT_NON_INTERACTIVE: "true"
 ```
 
-**After:**
+**Step 2. Use `-auto-approve` for Apply**
+Remove the deprecated `--terragrunt-non-interactive` flag from all commands. For `apply` and `destroy` commands, append `-auto-approve` to bypass the underlying Terraform prompt.
+
 ```yaml
+# Correct Init / Plan (No flags needed)
 run: terragrunt init --all
-run: terragrunt apply --all
-```
+run: terragrunt plan --all
 
-*(Note: Pining your `TG_VERSION` environment variable in the workflow to `1.0.1` ensures consistent behavior).*
+# Correct Apply / Destroy (Needs -auto-approve)
+run: terragrunt apply --all -auto-approve
+run: terragrunt destroy --all -auto-approve
+```
 
 ---
 
