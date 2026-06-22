@@ -1,3 +1,4 @@
+# [CI Test] Trigger: End-To-End-Project workflow validation
 include {
     path = find_in_parent_folders("root.hcl")
 }
