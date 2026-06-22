@@ -28,6 +28,7 @@ on:
           - 'dev'
           - 'uat'
           - 'prod'
+          - 'All Environments'
       confirmation:
         description: 'Type "DESTROY" to confirm you want to delete these resources'
         required: true
@@ -48,7 +49,8 @@ jobs:
     runs-on: ubuntu-latest
     
     # Use environment gates so production deletion still requires approval!
-    environment: ${{ github.event.inputs.environment }}
+    # If "All Environments" is selected, force the "prod" environment gate for safety.
+    environment: ${{ github.event.inputs.environment == 'All Environments' && 'prod' || github.event.inputs.environment }}
 
     steps:
       - name: Verify Confirmation
@@ -83,22 +85,35 @@ jobs:
 
       - name: Terragrunt Init & Destroy
         run: |
+          ENVS_TO_DESTROY="${{ github.event.inputs.environment }}"
+          if [ "$ENVS_TO_DESTROY" == "All Environments" ]; then
+            ENVS_TO_DESTROY="dev uat prod"
+          fi
+          
           if [ "${{ github.event.inputs.project }}" == "End-To-End-Project (EKS Stack)" ] || [ "${{ github.event.inputs.project }}" == "All Projects (Everything)" ]; then
-            if [ "${{ github.event.inputs.environment }}" != "dev" ]; then
+            if [[ "$ENVS_TO_DESTROY" == *"dev"* ]]; then
+              echo "Destroying End-To-End-Project (dev)..."
+              cd End-To-End-Project/infrastructure-live/dev
+              terragrunt init --all
+              terragrunt destroy --all -auto-approve
+              cd -
+            fi
+            if [ "${{ github.event.inputs.environment }}" != "All Environments" ] && [ "${{ github.event.inputs.environment }}" != "dev" ]; then
               echo "Error: End-To-End-Project currently only has a 'dev' environment configured."
               exit 1
             fi
-            echo "Destroying End-To-End-Project..."
-            cd End-To-End-Project/infrastructure-live/dev
-            terragrunt init --all
-            terragrunt destroy --all -auto-approve
-            cd -
           fi
           
           if [ "${{ github.event.inputs.project }}" == "Project 1 (VPC Multi-Env)" ] || [ "${{ github.event.inputs.project }}" == "All Projects (Everything)" ]; then
-            echo "Destroying Project 1 (${{ github.event.inputs.environment }})..."
-            cd infrastructure-live/${{ github.event.inputs.environment }}/vpc
-            terragrunt init --all
-            terragrunt destroy --all -auto-approve
-            cd -
+            for ENV in $ENVS_TO_DESTROY; do
+              echo "Destroying Project 1 ($ENV)..."
+              if [ -d "infrastructure-live/$ENV/vpc" ]; then
+                cd infrastructure-live/$ENV/vpc
+                terragrunt init --all
+                terragrunt destroy --all -auto-approve
+                cd -
+              else
+                echo "Directory infrastructure-live/$ENV/vpc does not exist, skipping..."
+              fi
+            done
           fi

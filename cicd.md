@@ -373,11 +373,11 @@ To handle this safely, use the **`Manual Teardown (Destroy)`** workflow:
 3. On the right side, click the **Run workflow** dropdown button.
 4. Fill out the required parameters:
    * **Project:** Select which project to destroy (`End-To-End-Project`, `Project 1`, or **`All Projects (Everything)`**).
-   * **Environment:** Select `dev`, `uat`, or `prod`.
+   * **Environment:** Select `dev`, `uat`, `prod`, or **`All Environments`**.
    * **Confirmation:** You must type exactly `DESTROY` in all caps to unlock the safety mechanism.
 5. Click **Run workflow**.
 
-> **Note on "All Projects":** Selecting the "All Projects (Everything)" option will safely iterate through every project folder in the repository for the specified environment and run a complete `destroy` in each one sequentially.
+> **Note on "All Projects" & "All Environments":** Selecting "All Projects (Everything)" or "All Environments" will safely iterate through the corresponding folders and tear down each one sequentially. If you select "All Environments", the pipeline will enforce the `prod` GitHub Environment approval gate to ensure production cannot be destroyed without explicit human approval.
 
 **Built-in Safety Features:**
 * Uses `terragrunt destroy --all -auto-approve` to cleanly tear down the entire module tree in reverse-dependency order.
