@@ -312,6 +312,21 @@ The workflow files currently live on the `cicd` branch. GitHub Actions only exec
 
 ---
 
+## Manually Triggering Pipelines (Recreating Infrastructure)
+
+While the pipelines are designed to trigger automatically on Pull Requests and Merges, you may sometimes want to re-deploy or recreate the infrastructure without pushing a "dummy commit" (for example, if you just ran a manual teardown and want to spin the environment back up).
+
+Both the E2E and VPC apply pipelines have a `workflow_dispatch` trigger, allowing you to run them manually:
+
+1. Go to your repository on GitHub and click the **Actions** tab.
+2. On the left sidebar, click on either **Terragrunt CI/CD - End-To-End-Project (dev)** or **Terragrunt CI/CD - VPC Multi-Env**.
+3. On the right side, click the **Run workflow** dropdown button.
+4. Click the green **Run workflow** button.
+
+This will force the pipeline to run the `apply` jobs based on the existing code in the `main` branch, immediately rebuilding your infrastructure.
+
+---
+
 ## PR Plan Comments
 
 When a Pull Request is opened or updated, the pipeline automatically posts the `terragrunt plan` output as a **collapsible comment** on the PR:
