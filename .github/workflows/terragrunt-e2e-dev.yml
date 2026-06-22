@@ -68,17 +68,17 @@ jobs:
 
       - name: Terragrunt Init (all modules)
         working-directory: ${{ env.WORKING_DIR }}
-        run: terragrunt init --all --terragrunt-non-interactive
+        run: terragrunt init --all
 
       - name: Terragrunt Validate (all modules)
         working-directory: ${{ env.WORKING_DIR }}
-        run: terragrunt validate --all --terragrunt-non-interactive
+        run: terragrunt validate --all
 
       - name: Terragrunt Plan (all modules)
         id: plan
         working-directory: ${{ env.WORKING_DIR }}
         run: |
-          terragrunt plan --all --terragrunt-non-interactive 2>&1 | tee plan_output.txt
+          terragrunt plan --all 2>&1 | tee plan_output.txt
           echo "exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
         continue-on-error: true   # Post the plan even if it fails
 
@@ -139,8 +139,8 @@ jobs:
 
       - name: Terragrunt Init (all modules)
         working-directory: ${{ env.WORKING_DIR }}
-        run: terragrunt init --all --terragrunt-non-interactive
+        run: terragrunt init --all
 
       - name: Terragrunt Apply (all modules)
         working-directory: ${{ env.WORKING_DIR }}
-        run: terragrunt apply --all --terragrunt-non-interactive
+        run: terragrunt apply --all
